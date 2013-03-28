@@ -11,19 +11,20 @@ import sys
 from os import path
 from collections import defaultdict
 from decimal import Decimal
+from datetime import datetime
+
 from xlrd import open_workbook
 from xlrd import XL_CELL_TEXT, XL_CELL_NUMBER
 from xlutils.copy import copy as copy_workbook
+
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 from nobix.db import setup_db, Session
 from nobix.models import Articulo
 from nobix.config import load_config
 
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
-
 q = Decimal('0.01')
-
-test_file = 'test_file/griferia.xls'
+now = datetime.now()
 
 
 def init_nobix_db():
@@ -122,6 +123,7 @@ def process_sheet(sheet, spec, outsheet, session):
                 msg = " ".join(e.args)
             # 3rd stamp status
             log_status(msg, r)
+
 
 def process_book(args=None):
     if args is None:
