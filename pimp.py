@@ -7,6 +7,7 @@
     xls price importer
 """
 
+import sys
 from os import path
 from collections import defaultdict
 from decimal import Decimal
@@ -101,20 +102,54 @@ def process_sheet(sheet, spec, outsheet, session):
                 log_status("EXCEPTION: %s" % " ".join(e.args), r)
                 continue
             # 1st read fields
+            for rkey, rcol in reads:
+                val = getattr(art, rkey)
+                outsheet.write(r, rcol, val)
+            msg = "READ OK"
             # 2nd update fields
-            toupdate = dict([(k, cast(row[i])) for k, i in updates])
+            toupdate = [(k, cast(row[i])) for k, i in updates]
+            for ukey, uval in toupdate:
+                setattr(art, ukey, uval)
+            try:
+                session.commit()
+                msg = "UPDATE OK"
+            except Exception as e:
+                session.rollback()
+                msg = " ".join(e.args)
             # 3rd stamp status
-            print ref_val, toupdate
+            log_status(msg, r)
+
+def process_book(args=None):
+    if args is None:
+        args = sys.argv[1:]
+
+    if len(args) == 0:
+        sys.exit("Debe proveer el archivo de entrada *.xls")
+
+    filename = args[0]
+    if not path.exists(filename) and path.isfile(filename):
+        sys.exit("El archivo '%s' no existe." % filename)
+
+    fnparts = filename.rpartition('.')
+    outfilename = fnparts[0] + '-out' + ''.join(fnparts[1:])
+
+    workbook = open_workbook(filename, on_demand=True, formatting_info=True)
+    out_wb = copy_workbook(workbook)
+
+    sheet_names = workbook.sheet_names()
+
+    session = init_nobix_db()
+
+    for idx, name in enumerate(sheet_names):
+        if name.lower().startswith(u'nobix_update'):
+            input_sheet = workbook.sheet_by_index(idx)
+            output_sheet = out_wb.get_sheet(idx)
+            spec = get_spec(input_sheet)
+            process_sheet(input_sheet, spec, output_sheet, session)
+            print "processed %s" % name
+    out_wb.save(outfilename)
+    print "saved to %s" % outfilename
+
 
 if __name__ == '__main__':
-    sheet_name = u'GRIFERIA'
-    workbook = open_workbook(test_file, on_demand=True, formatting_info=True)
-    test_sheet = workbook.sheet_by_name(sheet_name)
-    sheet_index = workbook.sheet_names().index(sheet_name)
-    out_wb = copy_workbook(workbook)
-    out_sheet = out_wb.get_sheet(sheet_index)
-    spec = get_spec(test_sheet)
-    print 'spec:', spec
-    session = init_nobix_db()
-    process_sheet(test_sheet, spec, out_sheet, session)
-    out_wb.save('test_output.xls')
+    process_book()
