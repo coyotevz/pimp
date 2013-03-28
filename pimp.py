@@ -72,8 +72,11 @@ def process_sheet(sheet, spec, outsheet, session):
     rev_col = spec['ref'][ref_name]
     reads = list(spec['read'].iteritems())
     updates = list(spec['update'].iteritems())
+    has_vigencia = 'vigencia' in spec['update']
+    must_update_vigencia = (not has_vigencia) and ('precio' in spec['update'])
+    has_status = 'status' in spec
 
-    if 'status' in spec:
+    if has_status:
         def log_status(msg, row):
             outsheet.write(row, spec['status'], msg)
     else:
@@ -115,6 +118,8 @@ def process_sheet(sheet, spec, outsheet, session):
             toupdate = [(k, cast(row[i])) for k, i in updates]
             for ukey, uval in toupdate:
                 setattr(art, ukey, uval)
+            if must_update_vigencia:
+                art.vigencia = now
             try:
                 session.commit()
                 msg = "UPDATE OK"
