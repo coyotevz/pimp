@@ -91,12 +91,16 @@ def process_sheet(sheet, spec, outsheet, session):
         if ref_val:
             # 0st retrieve article by ref
             try:
-                art = session.query(Articulo).filter(getattr(Articulo, ref_name) == ref_val).one()
+                art = session.query(Articulo)\
+                             .filter(getattr(Articulo, ref_name) == ref_val)\
+                             .one()
             except NoResultFound:
-                log_status("ERR: No se encuentra articulo que cumpla con '%s==%s'" % (ref_name, ref_val), r)
+                log_status("ERR: No se encuentra articulo que cumpla " + 
+                           "con '%s==%s'" % (ref_name, ref_val), r)
                 continue
             except MultipleResultsFound:
-                log_status("ERR: La condición '%s==%s' arroja multiples resultados" % (ref_name, rev_val), r)
+                log_status("ERR: La condición '%s==%s' arroja multiples " + 
+                           "resultados" % (ref_name, rev_val), r)
                 continue
             except Exception as e:
                 log_status("EXCEPTION: %s" % " ".join(e.args), r)
