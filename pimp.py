@@ -54,7 +54,7 @@ def get_spec(sheet):
             break
     if not ref_found:
         raise Exception("There is no reference in sheet '%s'" % sheet.name)
-    return dict(spec)
+    return spec
 
 
 def cast(cell):
@@ -92,18 +92,20 @@ def process_sheet(sheet, spec, outsheet, session):
             continue
 
         ref_val = cast(row[rev_col])
+        #print "processing %s (%s)" % (ref_val, r),
         if ref_val:
             # 0st retrieve article by ref
+            #print "OK"
             try:
                 art = session.query(Articulo)\
                              .filter(getattr(Articulo, ref_name) == ref_val)\
                              .one()
             except NoResultFound:
-                log_status("ERR: No se encuentra articulo que cumpla " + 
+                log_status("ERR: No se encuentra articulo que cumpla " +
                            "con '%s==%s'" % (ref_name, ref_val), r)
                 continue
             except MultipleResultsFound:
-                log_status("ERR: La condición '%s==%s' arroja multiples " + 
+                log_status("ERR: La condición '%s==%s' arroja multiples " +
                            "resultados" % (ref_name, rev_val), r)
                 continue
             except Exception as e:
@@ -122,12 +124,16 @@ def process_sheet(sheet, spec, outsheet, session):
                 art.vigencia = now
             try:
                 session.commit()
-                msg = "UPDATE OK"
+                if toupdate:
+                    msg = "UPDATE OK"
             except Exception as e:
                 session.rollback()
                 msg = " ".join(e.args)
             # 3rd stamp status
             log_status(msg, r)
+        else:
+            #print "BAD"
+            pass
 
 
 def process_book(args=None):
