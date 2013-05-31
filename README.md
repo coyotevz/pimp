@@ -1,3 +1,3 @@
 ### pimp
 
-xls price importer
+xls price dumper/importer
