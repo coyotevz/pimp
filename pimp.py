@@ -13,9 +13,10 @@ from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime
 
-from xlrd import open_workbook
-from xlrd import XL_CELL_TEXT, XL_CELL_NUMBER
+from xlrd import open_workbook, xldate_as_tuple
+from xlrd import XL_CELL_TEXT, XL_CELL_NUMBER, XL_CELL_DATE
 from xlutils.copy import copy as copy_workbook
+import xlwt
 
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
@@ -25,6 +26,15 @@ from nobix.config import load_config
 
 q = Decimal('0.01')
 now = datetime.now()
+
+
+ezxf = xlwt.easyxf
+xf_map = {
+    datetime: ezxf(num_format_str='yyyy-mm-dd'),
+    Decimal: ezxf(num_format_str='0.00'),
+    unicode: ezxf(),
+}
+book_datemode = None
 
 
 def init_nobix_db():
@@ -64,12 +74,16 @@ def cast(cell):
         return int(cell.value)
     elif cell.ctype is XL_CELL_TEXT:
         return cell.value.strip()
+    elif cell.ctype is XL_CELL_DATE:
+        if book_datemode is None:
+            raise ValueError("book_datemode not set")
+        return datetime(*xldate_as_tuple(cell.value, book_datemode)[:3])
     return cell.value
 
 
 def process_sheet(sheet, spec, outsheet, session):
     ref_name = spec['ref'].keys()[0]
-    rev_col = spec['ref'][ref_name]
+    ref_col = spec['ref'][ref_name]
     reads = list(spec['read'].iteritems())
     updates = list(spec['update'].iteritems())
     has_vigencia = 'vigencia' in spec['update']
@@ -86,12 +100,21 @@ def process_sheet(sheet, spec, outsheet, session):
     def ignore(cell):
         return cell.ctype == XL_CELL_TEXT and cell.value.startswith(u'!')
 
+    def create(cell):
+        return cell.ctype == XL_CELL_TEXT and cell.value.startswith(u'>')
+
+    to_create = []
+
     for r in range(spec['startrow'], sheet.nrows):
         row = sheet.row(r)
         if any(map(ignore, row)):
             continue
 
-        ref_val = cast(row[rev_col])
+        if any(map(create, row)):
+            to_create.append((r, list(row)))
+            continue
+
+        ref_val = cast(row[ref_col])
         #print "processing %s (%s)" % (ref_val, r),
         if ref_val:
             # 0st retrieve article by ref
@@ -114,7 +137,7 @@ def process_sheet(sheet, spec, outsheet, session):
             # 1st read fields
             for rkey, rcol in reads:
                 val = getattr(art, rkey)
-                outsheet.write(r, rcol, val)
+                outsheet.write(r, rcol, val, xf_map[type(val)])
             msg = "READ OK"
             # 2nd update fields
             toupdate = [(k, cast(row[i])) for k, i in updates]
@@ -135,8 +158,38 @@ def process_sheet(sheet, spec, outsheet, session):
             #print "BAD"
             pass
 
+    can_create = False
+    if to_create:
+        can_create = True
+        available_fields = spec['update'].keys() + [ref_name]
+        required_fields = ('codigo', 'descripcion', 'precio')
+        for rfield in required_fields:
+            if rfield not in available_fields:
+                can_create = False
+
+    if can_create:
+        for r, row in to_create:
+            newkeyvals = [(k, cast(row[i])) for k, i in updates] +\
+                         [(ref_name, cast(row[ref_col]))]
+            newart = Articulo()
+            for nkey, nval in newkeyvals:
+                setattr(newart, nkey, nval)
+            if 'vigencia' not in spec['update']:
+                newart.vigencia = now
+            if unicode(newart.codigo).startswith('I'):
+                newart.es_activo = False
+            try:
+                session.add(newart)
+                session.commit()
+                msg = "CREATED OK"
+            except Exception as e:
+                session.rollback()
+                msg = " ".join(e.args)
+            log_status(msg, r)
 
 def process_book(args=None):
+    global book_datemode
+
     if args is None:
         args = sys.argv[1:]
 
@@ -151,6 +204,8 @@ def process_book(args=None):
     outfilename = fnparts[0] + '-out' + ''.join(fnparts[1:])
 
     workbook = open_workbook(filename, on_demand=True, formatting_info=True)
+    book_datemode = workbook.datemode
+
     out_wb = copy_workbook(workbook)
 
     sheet_names = workbook.sheet_names()
