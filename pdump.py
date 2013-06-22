@@ -37,11 +37,13 @@ def dump_sheet(sheet, options):
 
     session = init_nobix_db()
 
-    since = options['since']
+    since = options.get('since', None)
     upto = options.get('upto', None)
     groups = options.get('groups', None)
 
-    query = Articulo.query.filter(Articulo.vigencia>=since)
+    query = Articulo.query
+    if since:
+        query = query.filter(Articulo.vigencia>=since)
     if upto:
         query = query.filter(Articulo.vigencia<=upto)
     if groups:
@@ -83,8 +85,8 @@ if __name__ == '__main__':
     from optparse import OptionParser
 
     parser = OptionParser()
-    parser.add_option("-s", "--since", dest="since",
-                      help="Vigencia desde")
+    parser.add_option("-s", "--since", dest="since", default=None,
+                      help="Vigencia desde [opcional]")
     parser.add_option("-u", "--upto", dest="upto", default=None,
                       help="Vigencia hasta [opcional]")
     parser.add_option("-g", "--groups", dest="groups", default="*",
@@ -94,16 +96,14 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    if not options.since:
-        sys.exit("ERROR: You must provide --since argument at least. -h for help")
-
     if options.groups:
         if options.groups == '*':
             options.groups = None
         else:
             options.groups = options.groups.split(",")
 
-    options.since = datetime.strptime(options.since, "%Y-%m-%d")
+    if options.since:
+        options.since = datetime.strptime(options.since, "%Y-%m-%d")
 
     if options.upto:
         options.upto = datetime.strptime(options.upto, "%Y-%m-%d")
