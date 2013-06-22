@@ -64,9 +64,6 @@ def dump_sheet(sheet, options):
         sheet.write(row, 3, art.proveedor, xf_map['text'])
         sheet.write(row, 4, art.vigencia, xf_map['date'])
         sheet.write(row, 5, art.precio, xf_map['price'])
-        #outfile.write("%14s|%-42s|%-15s|%10s|%10s\n" %\
-        #        (art.codigo, art.descripcion, art.agrupacion,
-        #            art.vigencia.strftime("%Y-%m-%d"), art.precio))
         row += 1
 
 
