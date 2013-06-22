@@ -14,7 +14,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from xlrd import open_workbook, xldate_as_tuple
-from xlrd import XL_CELL_TEXT, XL_CELL_NUMBER, XL_CELL_DATE
+from xlrd import XL_CELL_TEXT, XL_CELL_NUMBER, XL_CELL_DATE, XL_CELL_BOOLEAN
 from xlutils.copy import copy as copy_workbook
 import xlwt
 
@@ -33,6 +33,7 @@ xf_map = {
     datetime: ezxf(num_format_str='yyyy-mm-dd'),
     Decimal: ezxf(num_format_str='0.00'),
     unicode: ezxf(),
+    bool: ezxf(num_format_str='@'),
 }
 book_datemode = None
 
@@ -78,6 +79,8 @@ def cast(cell):
         if book_datemode is None:
             raise ValueError("book_datemode not set")
         return datetime(*xldate_as_tuple(cell.value, book_datemode)[:3])
+    elif cell.ctype is XL_CELL_BOOLEAN:
+        return bool(cell.value)
     return cell.value
 
 
