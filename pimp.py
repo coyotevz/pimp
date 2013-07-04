@@ -74,7 +74,7 @@ def cast(cell):
             return Decimal(str(cell.value)).quantize(q)
         return int(cell.value)
     elif cell.ctype is XL_CELL_TEXT:
-        return cell.value.strip()
+        return unicode(cell.value.strip())
     elif cell.ctype is XL_CELL_DATE:
         if book_datemode is None:
             raise ValueError("book_datemode not set")

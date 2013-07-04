@@ -100,7 +100,7 @@ if __name__ == '__main__':
         if options.groups == '*':
             options.groups = None
         else:
-            options.groups = options.groups.split(",")
+            options.groups = [unicode(g) for g in options.groups.split(",")]
 
     if options.since:
         options.since = datetime.strptime(options.since, "%Y-%m-%d")
