@@ -13,7 +13,7 @@ from decimal import Decimal
 from datetime import date
 import xlwt
 
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, desc, asc
 
 from nobix.config import load_config
 from nobix.db import setup_db, Session
@@ -43,20 +43,42 @@ def dump_sheet(sheet, options):
 
     sal = [k for k, v in config.documentos.iteritems() if v['stock'] == u'salida']
 
-    query = session.query(Articulo.doc_items).filter(ItemDocumento.documento.has(Documento.tipo.in_(sal)))
-    query = session.query(Articulo, func.sum(ItemDocumento.cantidad)).filter(ItemDocumento.articulo_id==Articulo.id)
+    query = session.query(Articulo, func.sum(ItemDocumento.cantidad).label("custom_tot"))\
+                .join(ItemDocumento, ItemDocumento.articulo_id==Articulo.id)\
+                .join(Documento, ItemDocumento.documento_id==Documento.id)\
+                .filter(Documento.tipo.in_(sal))\
+                .filter(Documento.fecha.between(start, end))\
+                .group_by(Articulo)
 
-    heads = ['Código', 'Descripción', 'Agrupación']
+    q1 = query.order_by(desc("custom_tot"))
+    q2 = query.order_by(asc("custom_tot"))
+
+    heads = [u'Código', u'Descripción', u'Agrupación']
 
     row = 0
     for c, h in enumerate(heads):
         sheet.write(row, c, h, xf_map['heading'])
 
     row += 1
-    for art in query:
+    for art, q in q1[:200]:
         sheet.write(row, 0, art.codigo, xf_map['text'])
         sheet.write(row, 1, art.descripcion, xf_map['text'])
         sheet.write(row, 2, art.agrupacion, xf_map['text'])
+        sheet.write(row, 3, q, xf_map['text'])
+        row += 1
+
+    sheet.write(row, 0, "Lo menos vendido", xf_map['text'])
+    row += 1
+
+    for c, h in enumerate(heads):
+        sheet.write(row, c, h, xf_map['heading'])
+
+    row += 1
+    for art, q in q2[:200]:
+        sheet.write(row, 0, art.codigo, xf_map['text'])
+        sheet.write(row, 1, art.descripcion, xf_map['text'])
+        sheet.write(row, 2, art.agrupacion, xf_map['text'])
+        sheet.write(row, 3, q, xf_map['text'])
         row += 1
 
 def write_xls(options):
@@ -69,12 +91,12 @@ def write_xls(options):
     wb.save(filename)
 
 
-if __name__ = '__main__':
+if __name__ == '__main__':
 
     from optparse import OptionParser
 
     parser = OptionParser()
-    parser.add_option("-o", "--outfile" dest="outfile", default="top200.xls",
+    parser.add_option("-o", "--outfile", dest="outfile", default="top200.xls",
                       help="Archivo de salida [opcional]")
 
     (options, args) = parser.parse_args()
