@@ -38,11 +38,14 @@ def dump_sheet(sheet, options):
 
     session = init_nobix_db()
 
+    only_active = options.get('only_active', True)
     since = options.get('since', None)
     upto = options.get('upto', None)
     groups = options.get('groups', None)
 
     query = Articulo.query
+    if only_active:
+        query = query.filter(Articulo.es_activo==True)
     if since:
         query = query.filter(Articulo.vigencia>=since)
     if upto:
@@ -86,6 +89,8 @@ if __name__ == '__main__':
     from optparse import OptionParser
 
     parser = OptionParser()
+    parser.add_option("-a", "--active", dest="only_active", default=True,
+                      help="Solo los items activos [default: True]")
     parser.add_option("-s", "--since", dest="since", default=None,
                       help="Vigencia desde [opcional]")
     parser.add_option("-u", "--upto", dest="upto", default=None,

@@ -107,7 +107,11 @@ def process_sheet(sheet, spec, outsheet, session):
     def create(cell):
         return cell.ctype == XL_CELL_TEXT and cell.value.startswith(u'>')
 
+    def delete(cell):
+        return cell.ctype == XL_CELL_TEXT and cell.value.startswith(u'<')
+
     to_create = []
+    to_delete = []
 
     for r in range(spec['startrow'], sheet.nrows):
         row = sheet.row(r)
@@ -116,6 +120,10 @@ def process_sheet(sheet, spec, outsheet, session):
 
         if any(map(create, row)):
             to_create.append((r, list(row)))
+            continue
+
+        if any(map(delete, row)):
+            to_delete.append((r, list(row)))
             continue
 
         ref_val = cast(row[ref_col])
@@ -188,8 +196,40 @@ def process_sheet(sheet, spec, outsheet, session):
                 msg = "CREATED OK"
             except Exception as e:
                 session.rollback()
-                msg = " ".join(e.args)
+                msg = unicode((" ".join(e.args)).decode("utf-8", "ignore"))
             log_status(msg, r)
+
+    if to_delete:
+        for r, row in to_delete:
+            ref_val = cast(row[ref_col])
+            if ref_val:
+                try:
+                    art = session.query(Articulo)\
+                                 .filter(getattr(Articulo, ref_name) == ref_val)\
+                                 .one()
+
+                except NoResultFound:
+                    log_status("ERR: No se encuentra articulo que cumpla " +
+                               "con '%s==%s'" % (ref_name, ref_val), r)
+                    continue
+                except MultipleResultsFound:
+                    log_status("ERR: La condición '%s==%s' arroja multiples " +
+                               "resultados" % (ref_name, rev_val), r)
+                    continue
+                except Exception as e:
+                    log_status("EXCEPTION: %s" % " ".join(e.args), r)
+                    continue
+
+                art.codigo = u'I' + art.codigo
+                art.es_activo = False
+                try:
+                    session.commit()
+                    msg = "DELETED OK"
+                except Exception as e:
+                    session.rollback()
+                    msg = " ".join(e.args)
+                log_status(msg, r)
+
 
 def process_book(args=None):
     global book_datemode
