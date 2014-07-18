@@ -32,10 +32,46 @@ def init_nobix_db():
     return session
 
 def dump_sheet(sheet, options):
-    pass
+    session = init_nobix_db()
+
+    since = options.get('since', None)
+    upto = options.get('upto', None)
+    groups = options.get('groups', None)
+
+    query = Articulo.query
+    if groups:
+        query = query.filter(Articulo.agrupacion.in_(groups))
+
+    query = query.order_by(Articulo.agrupacion, Articulo.codigo)
+
+    heads = ['codigo', 'descripcion', 'agrupacion', 'entradas', 'salidas']
+
+    row = 0
+    for c, h in enumerate(heads):
+        sheet.write(row, c, h, xf_map['heading'])
+
+    row += 1
+    for item in query:
+        sheet.write(row, 0, item.codigo, xf_map['text'])
+        sheet.write(row, 1, item.descripcion, xf_map['text'])
+        sheet.write(row, 2, item.agrupacion, xf_map['text'])
+        sheet.write(row, 3, item.entradas, xf_map['number'])
+        sheet.write(row, 4, item.salidas, xf_map['number'])
+        row += 1
 
 def write_xls(options):
-    pass
+    filename = options.pop('outfile')
+    wb = xlwt.Workbook()
+    if options['groups'] is None:
+        ws = wb.add_sheet('Movimientos')
+        dump_sheet(ws, options)
+    else:
+        for g in options['groups']:
+            o = options.copy()
+            o['groups'] = g
+            ws = wb.add_sheet(g)
+            dump_sheet(ws, o)
+    wb.save(filename)
 
 if __name__ == '__main__':
     from optparse import OptionParser
