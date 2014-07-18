@@ -65,7 +65,7 @@ def get_spec(sheet):
         if ref_found:
             break
     if not ref_found:
-        raise Exception("There is no reference in sheet '%s'" % sheet.name)
+        raise Exception(u"There is no reference in sheet '%s'" % sheet.name)
     return spec
 
 
@@ -78,7 +78,7 @@ def cast(cell):
         return unicode(cell.value.strip())
     elif cell.ctype is XL_CELL_DATE:
         if book_datemode is None:
-            raise ValueError("book_datemode not set")
+            raise ValueError(u"book_datemode not set")
         return datetime(*xldate_as_tuple(cell.value, book_datemode)[:3])
     elif cell.ctype is XL_CELL_BOOLEAN:
         return bool(cell.value)
@@ -99,7 +99,7 @@ def process_sheet(sheet, spec, outsheet, session):
             outsheet.write(row, spec['status'], msg)
     else:
         def log_status(msg, row):
-            print "%s (#%s)" % (msg, row)
+            print u"%s (#%s)" % (msg, row)
 
     def ignore(cell):
         return cell.ctype == XL_CELL_TEXT and cell.value.startswith(u'!')
@@ -136,21 +136,21 @@ def process_sheet(sheet, spec, outsheet, session):
                              .filter(getattr(Articulo, ref_name) == ref_val)\
                              .one()
             except NoResultFound:
-                log_status("ERR: No se encuentra articulo que cumpla " +
-                           "con '%s==%s'" % (ref_name, ref_val), r)
+                log_status(u"ERR: No se encuentra articulo que cumpla " +
+                           u"con '%s==%s'" % (ref_name, ref_val), r)
                 continue
             except MultipleResultsFound:
-                log_status("ERR: La condición '%s==%s' arroja multiples " +
-                           "resultados" % (ref_name, rev_val), r)
+                log_status(u"ERR: La condición '%s==%s' arroja multiples " +
+                           u"resultados" % (ref_name, rev_val), r)
                 continue
             except Exception as e:
-                log_status("EXCEPTION: %s" % " ".join(e.args), r)
+                log_status(u"EXCEPTION: %s" % u" ".join(e.args), r)
                 continue
             # 1st read fields
             for rkey, rcol in reads:
                 val = getattr(art, rkey)
                 outsheet.write(r, rcol, val, xf_map[type(val)])
-            msg = "READ OK"
+            msg = u"READ OK"
             # 2nd update fields
             toupdate = [(k, cast(row[i])) for k, i in updates]
             for ukey, uval in toupdate:
@@ -160,10 +160,10 @@ def process_sheet(sheet, spec, outsheet, session):
             try:
                 session.commit()
                 if toupdate:
-                    msg = "UPDATE OK"
+                    msg = u"UPDATE OK"
             except Exception as e:
                 session.rollback()
-                msg = " ".join(e.args)
+                msg = unicode((" ".join(e.args)).decode("utf-8", "ignore"))
             # 3rd stamp status
             log_status(msg, r)
         else:
@@ -193,7 +193,7 @@ def process_sheet(sheet, spec, outsheet, session):
             try:
                 session.add(newart)
                 session.commit()
-                msg = "CREATED OK"
+                msg = u"CREATED OK"
             except Exception as e:
                 session.rollback()
                 msg = unicode((" ".join(e.args)).decode("utf-8", "ignore"))
@@ -209,25 +209,25 @@ def process_sheet(sheet, spec, outsheet, session):
                                  .one()
 
                 except NoResultFound:
-                    log_status("ERR: No se encuentra articulo que cumpla " +
-                               "con '%s==%s'" % (ref_name, ref_val), r)
+                    log_status(u"ERR: No se encuentra articulo que cumpla " +
+                               u"con '%s==%s'" % (ref_name, ref_val), r)
                     continue
                 except MultipleResultsFound:
-                    log_status("ERR: La condición '%s==%s' arroja multiples " +
-                               "resultados" % (ref_name, rev_val), r)
+                    log_status(u"ERR: La condición '%s==%s' arroja multiples " +
+                               u"resultados" % (ref_name, rev_val), r)
                     continue
                 except Exception as e:
-                    log_status("EXCEPTION: %s" % " ".join(e.args), r)
+                    log_status(u"EXCEPTION: %s" % u" ".join(e.args), r)
                     continue
 
                 art.codigo = u'I' + art.codigo
                 art.es_activo = False
                 try:
                     session.commit()
-                    msg = "DELETED OK"
+                    msg = u"DELETED OK"
                 except Exception as e:
                     session.rollback()
-                    msg = " ".join(e.args)
+                    msg = unicode((" ".join(e.args)).decode("utf-8", "ignore"))
                 log_status(msg, r)
 
 
@@ -238,14 +238,14 @@ def process_book(args=None):
         args = sys.argv[1:]
 
     if len(args) == 0:
-        sys.exit("Debe proveer el archivo de entrada *.xls")
+        sys.exit(u"Debe proveer el archivo de entrada *.xls")
 
     filename = args[0]
     if not path.exists(filename) and path.isfile(filename):
-        sys.exit("El archivo '%s' no existe." % filename)
+        sys.exit(u"El archivo '%s' no existe." % filename)
 
     fnparts = filename.rpartition('.')
-    outfilename = fnparts[0] + '-out' + ''.join(fnparts[1:])
+    outfilename = fnparts[0] + '-out-c' + ''.join(fnparts[1:])
 
     workbook = open_workbook(filename, on_demand=True, formatting_info=True)
     book_datemode = workbook.datemode
@@ -262,9 +262,9 @@ def process_book(args=None):
             output_sheet = out_wb.get_sheet(idx)
             spec = get_spec(input_sheet)
             process_sheet(input_sheet, spec, output_sheet, session)
-            print "processed %s" % name
+            print u"processed %s" % name
     out_wb.save(outfilename)
-    print "saved to %s" % outfilename
+    print u"saved to %s" % outfilename
 
 
 if __name__ == '__main__':
