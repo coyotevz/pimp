@@ -22,6 +22,9 @@ today = date.today()
 
 ezxf = xlwt.easyxf
 xf_map = {
+    'heading': ezxf('font: bold on; align: wrap off, vert centre, horiz left'),
+    'text': ezxf(),
+    'number': ezxf(num_format_str='0.00'),
 }
 
 config = load_config()
@@ -31,6 +34,11 @@ def init_nobix_db():
     session = Session()
     return session
 
+entrada = [t for t, d in config.documentos.iteritems() if d['stock'] == u'entrada']
+salida = [t for t, d in config.documentos.iteritems() if d['stock'] == u'salida']
+entsal = entrada + salida
+mov = [t for t, d in config.documentos.iteritems() if (d['stock'] and t not in entsal)]
+
 def dump_sheet(sheet, options):
     session = init_nobix_db()
 
@@ -38,11 +46,17 @@ def dump_sheet(sheet, options):
     upto = options.get('upto', None)
     groups = options.get('groups', None)
 
-    query = Articulo.query
+    #query = Articulo.query
+    query = session.query(Articulo)
     if groups:
         query = query.filter(Articulo.agrupacion.in_(groups))
 
     query = query.order_by(Articulo.agrupacion, Articulo.codigo)
+
+    #session.query(ItemDocumento.id).filter(ItemDocumento.articulo_id==article.id)\
+    #       .join(Documento).filter(Documento.tipo.in_(entsal+mov))\
+    #       .filter(Documento.fecha.between(start_date, end_date))\
+    #       .order_by(Documento.fecha.asc())
 
     heads = ['codigo', 'descripcion', 'agrupacion', 'entradas', 'salidas']
 
@@ -52,11 +66,21 @@ def dump_sheet(sheet, options):
 
     row += 1
     for item in query:
+        entradas = 0
+        salidas = 0
+        ajustes = 0
+        for doc_item in item.doc_items:
+            if doc_item.documento.tipo in entrada:
+                entradas += doc_item.cantidad
+            elif doc_item.documento.tipo in salida:
+                salidas += doc_item.cantidad
+            elif doc_item.documento.tipo in mov:
+                ajustes += doc_item.cantidad
         sheet.write(row, 0, item.codigo, xf_map['text'])
         sheet.write(row, 1, item.descripcion, xf_map['text'])
         sheet.write(row, 2, item.agrupacion, xf_map['text'])
-        sheet.write(row, 3, item.entradas, xf_map['number'])
-        sheet.write(row, 4, item.salidas, xf_map['number'])
+        sheet.write(row, 3, entradas, xf_map['number'])
+        sheet.write(row, 4, salidas, xf_map['number'])
         row += 1
 
 def write_xls(options):
@@ -68,10 +92,11 @@ def write_xls(options):
     else:
         for g in options['groups']:
             o = options.copy()
-            o['groups'] = g
+            o['groups'] = [g]
             ws = wb.add_sheet(g)
             dump_sheet(ws, o)
     wb.save(filename)
+    print "Saved output to: %s" % filename
 
 if __name__ == '__main__':
     from optparse import OptionParser
