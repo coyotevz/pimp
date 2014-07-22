@@ -9,7 +9,7 @@
 """
 
 from decimal import Decimal
-from datetime import date
+from datetime import date, datetime
 import xlwt
 
 from sqlalchemy.sql import func, extract, desc, asc
