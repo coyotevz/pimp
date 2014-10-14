@@ -144,7 +144,7 @@ def process_sheet(sheet, spec, outsheet, session):
                            u"resultados" % (ref_name, rev_val), r)
                 continue
             except Exception as e:
-                log_status(u"EXCEPTION: %s" % u" ".join(e.args), r)
+                log_status(u"EXCEPTION: %r" % u" ".join(['%r' % a for a in e.args]), r)
                 continue
             # 1st read fields
             for rkey, rcol in reads:
@@ -217,7 +217,7 @@ def process_sheet(sheet, spec, outsheet, session):
                                u"resultados" % (ref_name, rev_val), r)
                     continue
                 except Exception as e:
-                    log_status(u"EXCEPTION: %s" % u" ".join(e.args), r)
+                    log_status(u"EXCEPTION: %s" % unicode((" ".join(e.args)).decode("utf-8", "ignore")), r)
                     continue
 
                 art.codigo = u'I' + art.codigo
